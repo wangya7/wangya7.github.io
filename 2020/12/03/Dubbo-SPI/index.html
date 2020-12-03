@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang=zh>
+<head>
+  <meta charset="utf-8">
+  
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, minimal-ui">
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="Cache-Control" content="no-transform" />
+  <meta http-equiv="Cache-Control" content="no-siteapp" />
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="format-detection" content="telephone=no,email=no,adress=no">
+  <!-- Color theme for statusbar -->
+  <meta name="theme-color" content="#000000" />
+  <!-- 强制页面在当前窗口以独立页面显示,防止别人在框架里调用页面 -->
+  <meta http-equiv="window-target" content="_top" />
+  
+  
+  <title>Dubbo-SPI&amp;自适应的扩展机制 | 半農</title>
+  <meta name="description" content="META-INF&#x2F;services 、ServiceLoaderJDK的SPI是一种服务发现机制。SPI将接口的实现类全限定名配置在文件中，由服务加载器读取配置文件，加载实现类，这样可以在运行期间动态的替换实现类。Dubbo实现了增强的SPI机制。Dubbo的SPI相关逻辑被封装在ExtensionLoader中，通过其加载指定的实现类。相比于JDK的路径，Dubbo将配置文件放置在META-IN">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Dubbo-SPI&amp;自适应的扩展机制">
+<meta property="og:url" content="http://bannong.wang/2020/12/03/Dubbo-SPI/index.html">
+<meta property="og:site_name" content="半農">
+<meta property="og:description" content="META-INF&#x2F;services 、ServiceLoaderJDK的SPI是一种服务发现机制。SPI将接口的实现类全限定名配置在文件中，由服务加载器读取配置文件，加载实现类，这样可以在运行期间动态的替换实现类。Dubbo实现了增强的SPI机制。Dubbo的SPI相关逻辑被封装在ExtensionLoader中，通过其加载指定的实现类。相比于JDK的路径，Dubbo将配置文件放置在META-IN">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2020-12-03T13:51:44.000Z">
+<meta property="article:modified_time" content="2020-12-03T14:06:49.724Z">
+<meta property="article:author" content="半農">
+<meta property="article:tag" content="Dubbo">
+<meta property="article:tag" content="Java">
+<meta name="twitter:card" content="summary">
+  <!-- Canonical links -->
+  <link rel="canonical" href="http://bannong.wang/2020/12/03/Dubbo-SPI/index.html">
+  
+  
+    <link rel="icon" href="/favicon.png" type="image/x-icon">
+  
+  
+<link rel="stylesheet" href="/css/style.css">
+
+  
+  
+  
+  
+<meta name="generator" content="Hexo 4.2.1"><link rel="alternate" href="/atom.xml" title="半農" type="application/atom+xml">
+</head>
+
+
+<body class="main-center" itemscope itemtype="http://schema.org/WebPage">
+  <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+  <div class="slimContent">
+    <div class="navbar-header">
+      
+      
+      <div class="profile-block text-center">
+        <a id="avatar" href="https://github.com/wangya7" target="_blank">
+          <img class="img-circle img-rotate" src="/images/avatar.jpg" width="200" height="200">
+        </a>
+        <h2 id="name" class="hidden-xs hidden-sm">王半農</h2>
+        <h3 id="title" class="hidden-xs hidden-sm hidden-md"></h3>
+        <small id="location" class="text-muted hidden-xs hidden-sm"><i class="icon icon-map-marker"></i> Guangzhou, China</small>
+      </div>
+      
+      <div class="search" id="search-form-wrap">
+
+    <form class="search-form sidebar-form">
+        <div class="input-group">
+            <input type="text" class="search-form-input form-control" placeholder="搜索" />
+            <span class="input-group-btn">
+                <button type="submit" class="search-form-submit btn btn-flat" onclick="return false;"><i class="icon icon-search"></i></button>
+            </span>
+        </div>
+    </form>
+    <div class="ins-search">
+  <div class="ins-search-mask"></div>
+  <div class="ins-search-container">
+    <div class="ins-input-wrapper">
+      <input type="text" class="ins-search-input" placeholder="想要查找什么..." x-webkit-speech />
+      <button type="button" class="close ins-close ins-selectable" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">×</span></button>
+    </div>
+    <div class="ins-section-wrapper">
+      <div class="ins-section-container"></div>
+    </div>
+  </div>
+</div>
+
+
+</div>
+      <button class="navbar-toggle collapsed" type="button" data-toggle="collapse" data-target="#main-navbar" aria-controls="main-navbar" aria-expanded="false">
+        <span class="sr-only">Toggle navigation</span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+    </div>
+    <nav id="main-navbar" class="collapse navbar-collapse" itemscope itemtype="http://schema.org/SiteNavigationElement" role="navigation">
+      <ul class="nav navbar-nav main-nav ">
+        
+        
+        <li class="menu-item menu-item-home">
+          <a href="/.">
+            
+            <i class="icon icon-home-fill"></i>
+            
+            <span class="menu-title">首页</span>
+          </a>
+        </li>
+        
+        
+        <li class="menu-item menu-item-archives">
+          <a href="/archives">
+            
+            <i class="icon icon-archives-fill"></i>
+            
+            <span class="menu-title">归档</span>
+          </a>
+        </li>
+        
+        
+        <li class="menu-item menu-item-categories">
+          <a href="/categories">
+            
+            <i class="icon icon-folder"></i>
+            
+            <span class="menu-title">分类</span>
+          </a>
+        </li>
+        
+        
+        <li class="menu-item menu-item-tags">
+          <a href="/tags">
+            
+            <i class="icon icon-tags"></i>
+            
+            <span class="menu-title">标签</span>
+          </a>
+        </li>
+        
+        
+        <li class="menu-item menu-item-about">
+          <a href="/about">
+            
+            <i class="icon icon-cup-fill"></i>
+            
+            <span class="menu-title">关于</span>
+          </a>
+        </li>
+        
+      </ul>
+      
+	
+    <ul class="social-links">
+    	
+        <li><a href="https://github.com/wangya7" target="_blank" title="Github" data-toggle=tooltip data-placement=top><i class="icon icon-github"></i></a></li>
+        
+    </ul>
+
+    </nav>
+  </div>
+</header>
+
+  
+    <aside class="sidebar" itemscope itemtype="http://schema.org/WPSideBar">
+  <div class="slimContent">
+    
+      <div class="widget">
+    <h3 class="widget-title">公告</h3>
+    <div class="widget-body">
+        <div id="board">
+            <div class="content">
+                <p>欢迎交流与分享经验!</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+    
+      
+
+    
+      
+  <div class="widget">
+    <h3 class="widget-title">标签</h3>
+    <div class="widget-body">
+      <ul class="tag-list" itemprop="keywords"><li class="tag-list-item"><a class="tag-list-link" href="/tags/Dubbo/" rel="tag">Dubbo</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Java/" rel="tag">Java</a><span class="tag-list-count">1</span></li></ul>
+    </div>
+  </div>
+
+
+    
+      
+  <div class="widget">
+    <h3 class="widget-title">标签云</h3>
+    <div class="widget-body tagcloud">
+      <a href="/tags/Dubbo/" style="font-size: 13px;">Dubbo</a> <a href="/tags/Java/" style="font-size: 13px;">Java</a>
+    </div>
+  </div>
+
+    
+      
+  <div class="widget">
+    <h3 class="widget-title">归档</h3>
+    <div class="widget-body">
+      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2020/12/">十二月 2020</a><span class="archive-list-count">1</span></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2020/06/">六月 2020</a><span class="archive-list-count">1</span></li></ul>
+    </div>
+  </div>
+
+
+    
+      
+  <div class="widget">
+    <h3 class="widget-title">最新文章</h3>
+    <div class="widget-body">
+      <ul class="recent-post-list list-unstyled no-thumbnail">
+        
+          <li>
+            
+            <div class="item-inner">
+              <p class="item-category">
+                
+              </p>
+              <p class="item-title">
+                <a href="/2020/12/03/Dubbo-SPI/" class="title">Dubbo-SPI&amp;自适应的扩展机制</a>
+              </p>
+              <p class="item-date">
+                <time datetime="2020-12-03T13:51:44.000Z" itemprop="datePublished">2020/12/03</time>
+              </p>
+            </div>
+          </li>
+          
+          <li>
+            
+            <div class="item-inner">
+              <p class="item-category">
+                
+              </p>
+              <p class="item-title">
+                <a href="/2020/06/18/Blog/" class="title">个人博客搭建</a>
+              </p>
+              <p class="item-date">
+                <time datetime="2020-06-18T08:31:44.753Z" itemprop="datePublished">2020/06/18</time>
+              </p>
+            </div>
+          </li>
+          
+      </ul>
+    </div>
+  </div>
+  
+
+    
+  </div>
+</aside>
+
+  
+  
+<main class="main" role="main">
+  <div class="content">
+  <article id="post-Dubbo-SPI" class="article article-type-post" itemscope itemtype="http://schema.org/BlogPosting">
+    
+    <div class="article-header">
+      
+        
+  
+    <h1 class="article-title" itemprop="name">
+      Dubbo-SPI&amp;自适应的扩展机制
+    </h1>
+  
+
+      
+      <div class="article-meta">
+        <span class="article-date">
+    <i class="icon icon-calendar-check"></i>
+	<a href="/2020/12/03/Dubbo-SPI/" class="article-date">
+	  <time datetime="2020-12-03T13:51:44.000Z" itemprop="datePublished">2020/12/03</time>
+	</a>
+</span>
+        
+        
+  <span class="article-tag">
+    <i class="icon icon-tags"></i>
+	<a class="article-tag-link" href="/tags/Dubbo/" rel="tag">Dubbo</a>, <a class="article-tag-link" href="/tags/Java/" rel="tag">Java</a>
+  </span>
+
+
+        
+
+        <span class="post-comment"><i class="icon icon-comment"></i> <a href="/2020/12/03/Dubbo-SPI/#comments" class="article-comment-link">评论</a></span>
+        
+      </div>
+    </div>
+    <div class="article-entry marked-body" itemprop="articleBody">
+      
+        <p><strong>META-INF/services</strong> 、<strong>ServiceLoader</strong><br>JDK的SPI是一种服务发现机制。SPI将接口的实现类全限定名配置在文件中，由服务加载器读取配置文件，加载实现类，这样可以在运行期间动态的替换实现类。<br>Dubbo实现了增强的SPI机制。Dubbo的SPI相关逻辑被封装在ExtensionLoader中，通过其加载指定的实现类。相比于JDK的路径，Dubbo将配置文件放置在META-INF/dubbo 路径下，同时采用了键值对的形式。</p>
+<p><a href="http://dubbo.apache.org/zh-cn/docs/source_code_guide/adaptive-extension.html" target="_blank" rel="noopener">官方文档</a></p>
+<p>SPI和Dubbo的自适应的扩展机制必须放在一起说，分不开的。<br>主要分析 com.alibaba.dubbo.common.extension.ExtensionLoader</p>
+<h3 id="case-1-ExtensionLoaderTest-robotTest"><a href="#case-1-ExtensionLoaderTest-robotTest" class="headerlink" title="case 1.ExtensionLoaderTest.robotTest"></a>case 1.ExtensionLoaderTest.robotTest</h3><h4 id="一、初始化type对应ExtensionLoader对象的objectFactory成员变量"><a href="#一、初始化type对应ExtensionLoader对象的objectFactory成员变量" class="headerlink" title="一、初始化type对应ExtensionLoader对象的objectFactory成员变量"></a>一、初始化type对应ExtensionLoader对象的objectFactory成员变量</h4><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ExtensionLoader&lt;Robot&gt; extensionLoader = ExtensionLoader.getExtensionLoader(Robot<span class="class">.<span class="keyword">class</span>)</span>;</span><br></pre></td></tr></table></figure>
+<p>基础的区别于jdk的SPI加载实践<br>通过 ExtensionLoader.getExtensionLoader(Robot.class); 这行代码就必须走到 new ExtensionLoader<T>(type)。<br>其实这1行代码就是说初始化 ExtensionFactory 的实现，默认是首先加载 ExtensionFactory.class 然后调用了 getAdaptiveExtension()获取自适应拓展</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">com.alibaba.dubbo.common.extension.ExtensionLoader.createAdaptiveExtension</span><br></pre></td></tr></table></figure>
+<p>这个方法就是核心需要理解的啦。</p>
+<ol>
+<li>调用 getAdaptiveExtensionClass 方法获取自适应拓展 Class 对象</li>
+<li>通过反射进行实例化</li>
+<li>调用 injectExtension 方法向拓展实例中注入依赖<br>每个步骤里面又细分，尤其是第一步比较精彩！这里面把第1步拿出来说一下。<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * 1. 调用 getExtensionClasses 获取所有的拓展类</span></span><br><span class="line"><span class="comment"> * 2. 检查缓存，若缓存不为空，则返回缓存</span></span><br><span class="line"><span class="comment"> * 3. 若缓存为空，则调用 createAdaptiveExtensionClass 创建自适应拓展类</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * 首先从第一个逻辑说起，getExtensionClasses 这个方法用于获取某个接口的所有实现类。比如该方法可以获取</span></span><br><span class="line"><span class="comment"> * Protocol 接口的 DubboProtocol、HttpProtocol、InjvmProtocol 等实现类。在获取实现类的过程中，</span></span><br><span class="line"><span class="comment"> * 如果某个实现类被 Adaptive 注解修饰了，那么该类就会被赋值给 cachedAdaptiveClass 变量。此时，上面步</span></span><br><span class="line"><span class="comment"> * 骤中的第二步条件成立（缓存不为空），直接返回 cachedAdaptiveClass 即可。如果所有的实现类均未被</span></span><br><span class="line"><span class="comment"> * Adaptive 注解修饰，那么执行第三步逻辑，创建自适应拓展类。</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@return</span></span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">private</span> Class&lt;?&gt; getAdaptiveExtensionClass() &#123;</span><br><span class="line">    <span class="comment">// 通过 SPI 获取所有的拓展类</span></span><br><span class="line">    getExtensionClasses();</span><br><span class="line">    <span class="keyword">if</span> (cachedAdaptiveClass != <span class="keyword">null</span>) &#123;</span><br><span class="line">        <span class="keyword">return</span> cachedAdaptiveClass;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">// 创建自适应拓展类</span></span><br><span class="line">    <span class="keyword">return</span> cachedAdaptiveClass = createAdaptiveExtensionClass();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+运行代码的时候，会发现 ExtensionFactory 包含两个实现，其中有一个被 @Adaptive 修饰的 AdaptiveExtensionFactory，其实这个在getExtensionClasses内部会初始化赋值给cachedAdaptiveClass，所以return cachedAdaptiveClass;直接返回啦。</li>
+</ol>
+<h4 id="二、type对应ExtensionLoader对象获取对应名称的实例对象"><a href="#二、type对应ExtensionLoader对象获取对应名称的实例对象" class="headerlink" title="二、type对应ExtensionLoader对象获取对应名称的实例对象"></a>二、type对应ExtensionLoader对象获取对应名称的实例对象</h4><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">Robot optimusPrime = extensionLoader.getExtension(<span class="string">"optimusPrime"</span>);</span><br></pre></td></tr></table></figure>
+<p>这个就没有啥子说的啦，自己追代码</p>
+<p>第1个case就是通过 Class.forName 加载   没啥好说的</p>
+<p>dubbo通过自实现的SPI来实现扩展，配置切换。 比如Protocol、Cluster、LoadBalance 等。当某些扩展不想在框架启动时候加载，<br>而希望扩展方法条用的时候，根据运行时参数进行加载。  —— 扩展未加载，难道可以使用扩展的方法？<br>dubbo通过自适应拓展机制很好的解决了，dubbo 会为拓展接口生成具有代理功能的代码，然后通过 javassist 或 jdk 编译这段<br>代码得到Class类，最后再通过反射创建代理类。</p>
+<p>@Adaptive用在类上面，基本上都是显现类使用，这个实现类就是这个接口的默认实现（比如上面说的 AdaptiveExtensionFactory）；但是这个注解多数使用在方法上。</p>
+<h3 id="case-2-ExtensionLoader-Adaptive-Test-test-getAdaptiveExtension-inject"><a href="#case-2-ExtensionLoader-Adaptive-Test-test-getAdaptiveExtension-inject" class="headerlink" title="case 2.ExtensionLoader_Adaptive_Test.test_getAdaptiveExtension_inject"></a>case 2.ExtensionLoader_Adaptive_Test.test_getAdaptiveExtension_inject</h3><p>自适应加载测试<br>尤其需要注意 url增加参数的key和value。这需要和创建自适应的代理代码有关系，参考这个方法。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">com.alibaba.dubbo.common.extension.ExtensionLoader.createAdaptiveExtensionClassCode</span><br></pre></td></tr></table></figure>
+<p>其实入口也是上面的createAdaptiveExtension，那么为什么上面没有走到 createAdaptiveExtensionClassCode 方法呢？————是因为上面的 ExtensionFactory 的实现类 AdaptiveExtensionFactory 被 @Adaptive 标注啦。</p>
+<p>下面再重温这段代码吧</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * 1. 调用 getAdaptiveExtensionClass 方法获取自适应拓展 Class 对象</span></span><br><span class="line"><span class="comment"> * 2. 通过反射进行实例化</span></span><br><span class="line"><span class="comment"> * 3. 调用 injectExtension 方法向拓展实例中注入依赖</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@return</span></span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="meta">@SuppressWarnings</span>(<span class="string">"unchecked"</span>)</span><br><span class="line"><span class="function"><span class="keyword">private</span> T <span class="title">createAdaptiveExtension</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> injectExtension((T) getAdaptiveExtensionClass().newInstance());</span><br><span class="line">    &#125; <span class="keyword">catch</span> (Exception e) &#123;</span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> IllegalStateException(<span class="string">"Can not create adaptive extension "</span> + type + <span class="string">", cause: "</span> + e.getMessage(), e);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * 1. 调用 getExtensionClasses 获取所有的拓展类</span></span><br><span class="line"><span class="comment"> * 2. 检查缓存，若缓存不为空，则返回缓存</span></span><br><span class="line"><span class="comment"> * 3. 若缓存为空，则调用 createAdaptiveExtensionClass 创建自适应拓展类</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * 首先从第一个逻辑说起，getExtensionClasses 这个方法用于获取某个接口的所有实现类。比如该方法可以获取</span></span><br><span class="line"><span class="comment"> * Protocol 接口的 DubboProtocol、HttpProtocol、InjvmProtocol 等实现类。在获取实现类的过程中，</span></span><br><span class="line"><span class="comment"> * 如果某个实现类被 Adaptive 注解修饰了，那么该类就会被赋值给 cachedAdaptiveClass 变量。此时，上面步</span></span><br><span class="line"><span class="comment"> * 骤中的第二步条件成立（缓存不为空），直接返回 cachedAdaptiveClass 即可。如果所有的实现类均未被</span></span><br><span class="line"><span class="comment"> * Adaptive 注解修饰，那么执行第三步逻辑，创建自适应拓展类。</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@return</span></span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">private</span> Class&lt;?&gt; getAdaptiveExtensionClass() &#123;</span><br><span class="line">    <span class="comment">// 通过 SPI 获取所有的拓展类</span></span><br><span class="line">    getExtensionClasses();</span><br><span class="line">    <span class="keyword">if</span> (cachedAdaptiveClass != <span class="keyword">null</span>) &#123;</span><br><span class="line">        <span class="keyword">return</span> cachedAdaptiveClass;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">// 创建自适应拓展类</span></span><br><span class="line">    <span class="keyword">return</span> cachedAdaptiveClass = createAdaptiveExtensionClass();</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">private</span> Class&lt;?&gt; createAdaptiveExtensionClass() &#123;</span><br><span class="line">    <span class="comment">// 构建自适应拓展代码</span></span><br><span class="line">    String code = createAdaptiveExtensionClassCode();</span><br><span class="line">    ClassLoader classLoader = findClassLoader();</span><br><span class="line">    <span class="comment">// 获取编译器实现类</span></span><br><span class="line">    com.alibaba.dubbo.common.compiler.Compiler compiler = ExtensionLoader.getExtensionLoader(com.alibaba.dubbo.common.compiler.Compiler<span class="class">.<span class="keyword">class</span>).<span class="title">getAdaptiveExtension</span>()</span>;</span><br><span class="line">    <span class="comment">// 编译代码，生成 Class</span></span><br><span class="line">    <span class="keyword">return</span> compiler.compile(code, classLoader);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * 看完这段代码就点杯 喜茶</span></span><br><span class="line"><span class="comment"> * 其实很简单  找个案例跑一下   比如 com.alibaba.dubbo.remoting.Transporter  或者  com.alibaba.dubbo.rpc.Protocol</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * 默认生成一个代理类的字符串编码 &#123;name&#125;$Adaptive</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@return</span></span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="function"><span class="keyword">private</span> String <span class="title">createAdaptiveExtensionClassCode</span><span class="params">()</span> </span>&#123;</span><br><span class="line">   <span class="comment">//...省略</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="case-3-ExtensionLoader-Adaptive-Test-test-getAdaptiveExtension-customizeAdaptiveKey"><a href="#case-3-ExtensionLoader-Adaptive-Test-test-getAdaptiveExtension-customizeAdaptiveKey" class="headerlink" title="case 3.ExtensionLoader_Adaptive_Test.test_getAdaptiveExtension_customizeAdaptiveKey"></a>case 3.ExtensionLoader_Adaptive_Test.test_getAdaptiveExtension_customizeAdaptiveKey</h3><p>了解加载参数的样式</p>
+<blockquote>
+<p>补充一句，这里就可以看出来URL的作用 相当于数据总线 穿插在各个功能点 通过其绑定绑定配置信息</p>
+</blockquote>
+<h3 id="总结一下-可以借鉴的地方就是-动态生成代理类竟然可以这么玩，有点骚！"><a href="#总结一下-可以借鉴的地方就是-动态生成代理类竟然可以这么玩，有点骚！" class="headerlink" title="总结一下 可以借鉴的地方就是 动态生成代理类竟然可以这么玩，有点骚！"></a>总结一下 可以借鉴的地方就是 动态生成代理类竟然可以这么玩，有点骚！</h3>
+      
+    </div>
+    <div class="article-footer">
+      <blockquote class="mt-2x">
+  <ul class="post-copyright list-unstyled">
+    
+    <li class="post-copyright-link hidden-xs">
+      <strong>本文链接：</strong>
+      <a href="http://bannong.wang/2020/12/03/Dubbo-SPI/" title="Dubbo-SPI&amp;自适应的扩展机制" target="_blank" rel="external">http://bannong.wang/2020/12/03/Dubbo-SPI/</a>
+    </li>
+    
+    <li class="post-copyright-license">
+      <strong>版权声明： </strong> 本博客所有文章除特别声明外，均采用 <a href="http://creativecommons.org/licenses/by/4.0/deed.zh" target="_blank" rel="external">CC BY 4.0 CN协议</a> 许可协议。转载请注明出处！
+    </li>
+  </ul>
+</blockquote>
+
+
+<div class="panel panel-default panel-badger">
+  <div class="panel-body">
+    <figure class="media">
+      <div class="media-left">
+        <a href="https://github.com/wangya7" target="_blank" class="img-burn thumb-sm visible-lg">
+          <img src="/images/avatar.jpg" class="img-rounded w-full" alt="">
+        </a>
+      </div>
+      <div class="media-body">
+        <h3 class="media-heading"><a href="https://github.com/wangya7" target="_blank"><span class="text-dark">王半農</span><small class="ml-1x"></small></a></h3>
+        <div>个人简介。</div>
+      </div>
+    </figure>
+  </div>
+</div>
+
+
+    </div>
+  </article>
+  
+    
+  <section id="comments">
+  	
+      <div id="vcomments"></div>
+    
+  </section>
+
+
+  
+</div>
+
+  <nav class="bar bar-footer clearfix" data-stick-bottom>
+  <div class="bar-inner">
+  
+  <ul class="pager pull-left">
+    
+    
+    <li class="next">
+      <a href="/2020/06/18/Blog/" title="个人博客搭建"><span>下一篇&nbsp;&nbsp;</span><i class="icon icon-angle-right" aria-hidden="true"></i></a>
+    </li>
+    
+    
+  </ul>
+  
+  
+  <!-- Button trigger modal -->
+  <button type="button" class="btn btn-fancy btn-donate pop-onhover bg-gradient-warning" data-toggle="modal" data-target="#donateModal"><span>赏</span></button>
+  <!-- <div class="wave-icon wave-icon-danger btn-donate" data-toggle="modal" data-target="#donateModal">
+    <div class="wave-circle"><span class="icon"><i class="icon icon-bill"></i></span></div>
+  </div> -->
+  
+  
+  <div class="bar-right">
+    
+  </div>
+  </div>
+</nav>
+  
+<!-- Modal -->
+<div class="modal modal-center modal-small modal-xs-full fade" id="donateModal" tabindex="-1" role="dialog">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content donate">
+      <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+      <div class="modal-body">
+        <div class="donate-box">
+          <div class="donate-head">
+            <p>感谢您的支持，我会继续努力的!</p>
+          </div>
+          <div class="tab-content">
+            <div role="tabpanel" class="tab-pane fade active in" id="alipay">
+              <div class="donate-payimg">
+                <img src="/images/donate/alipayimg.jpg" alt="扫码支持" title="扫一扫" />
+              </div>
+              <p class="text-muted mv">扫码打赏，你说多少就多少</p>
+              <p class="text-grey">打开支付宝扫一扫，即可进行扫码打赏哦</p>
+            </div>
+            <div role="tabpanel" class="tab-pane fade" id="wechatpay">
+              <div class="donate-payimg">
+                <img src="/images/donate/wechatpayimg.jpg" alt="扫码支持" title="扫一扫" />
+              </div>
+              <p class="text-muted mv">扫码打赏，你说多少就多少</p>
+              <p class="text-grey">打开微信扫一扫，即可进行扫码打赏哦</p>
+            </div>
+          </div>
+          <div class="donate-footer">
+            <ul class="nav nav-tabs nav-justified" role="tablist">
+              <li role="presentation" class="active">
+                <a href="#alipay" id="alipay-tab" role="tab" data-toggle="tab" aria-controls="alipay" aria-expanded="true"><i class="icon icon-alipay"></i> 支付宝</a>
+              </li>
+              <li role="presentation" class="">
+                <a href="#wechatpay" role="tab" id="wechatpay-tab" data-toggle="tab" aria-controls="wechatpay" aria-expanded="false"><i class="icon icon-wepay"></i> 微信支付</a>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+
+</main>
+
+  <footer class="footer" itemscope itemtype="http://schema.org/WPFooter">
+	
+	
+    <ul class="social-links">
+    	
+        <li><a href="https://github.com/wangya7" target="_blank" title="Github" data-toggle=tooltip data-placement=top><i class="icon icon-github"></i></a></li>
+        
+    </ul>
+
+    <div class="copyright">
+    	
+        <div class="publishby">
+        	Theme by <a href="https://github.com/cofess" target="_blank"> cofess </a>base on <a href="https://github.com/cofess/hexo-theme-pure" target="_blank">pure</a>.
+        </div>
+    </div>
+</footer>
+  <script src="//cdn.jsdelivr.net/npm/jquery@1.12.4/dist/jquery.min.js"></script>
+<script>
+window.jQuery || document.write('<script src="js/jquery.min.js"><\/script>')
+</script>
+
+<script src="/js/plugin.min.js"></script>
+
+
+<script src="/js/application.js"></script>
+
+
+    <script>
+(function (window) {
+    var INSIGHT_CONFIG = {
+        TRANSLATION: {
+            POSTS: '文章',
+            PAGES: '页面',
+            CATEGORIES: '分类',
+            TAGS: '标签',
+            UNTITLED: '(未命名)',
+        },
+        ROOT_URL: '/',
+        CONTENT_URL: '/content.json',
+    };
+    window.INSIGHT_CONFIG = INSIGHT_CONFIG;
+})(window);
+</script>
+
+<script src="/js/insight.js"></script>
+
+
+
+
+
+
+   
+
+
+
+
+   
+    
+  <script src="//cdn1.lncld.net/static/js/3.0.4/av-min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/valine"></script>
+  <script type="text/javascript">
+  var GUEST = ['nick', 'mail', 'link'];
+  var meta = 'nick,mail,link';
+  meta = meta.split(',').filter(function(item) {
+    return GUEST.indexOf(item) > -1;
+  });
+  new Valine({
+    el: '#vcomments',
+    verify: false,
+    notify: false,
+    appId: '',
+    appKey: '',
+    placeholder: 'Just go go',
+    avatar: 'mm',
+    meta: meta,
+    pageSize: '10' || 10,
+    visitor: false
+  });
+  </script>
+
+     
+
+
+
+
+
+
+
+</body>
+</html>
